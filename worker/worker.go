@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/bernardo1r/pow"
-	"github.com/bernardo1r/pow/internal/rand"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -17,7 +16,6 @@ func work(ctx context.Context, results chan<- *pow.Result, digest []byte, target
 	highest := p.Result()
 	results <- highest
 
-	state, err := rand.New()
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +26,7 @@ func work(ctx context.Context, results chan<- *pow.Result, digest []byte, target
 
 		default:
 		}
-		res, err := p.Redo(state)
+		res, err := p.Redo()
 		if err != nil {
 			return nil, err
 		}

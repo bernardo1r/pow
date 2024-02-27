@@ -1,7 +1,6 @@
 package pow
 
 import (
-	cryptoRand "crypto/rand"
 	"errors"
 	"hash"
 	"io"
@@ -20,6 +19,7 @@ type Result struct {
 
 type Pow struct {
 	hash            hash.Hash
+	state           *rand.State
 	buff            []byte
 	inputDigestSize int
 	result          *Result
@@ -49,21 +49,14 @@ func DigestFile(name string) ([]byte, error) {
 	return hash.Sum(digest), nil
 }
 
-func (p *Pow) redo(state *rand.State) (*Result, error) {
-	if state == nil {
-		_, err := cryptoRand.Read(p.buff[p.inputDigestSize:])
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		_, err := state.Read(p.buff[p.inputDigestSize:])
-		if err != nil {
-			return nil, err
-		}
+func (p *Pow) redo() (*Result, error) {
+	_, err := p.state.Read(p.buff[p.inputDigestSize:])
+	if err != nil {
+		return nil, err
 	}
 
 	p.hash.Reset()
-	_, err := p.hash.Write(p.buff)
+	_, err = p.hash.Write(p.buff)
 	if err != nil {
 		return nil, err
 	}
@@ -95,9 +88,14 @@ func New(digest []byte) (*Pow, error) {
 	p := new(Pow)
 	p.inputDigestSize = len(digest)
 	p.hash = sha3.New512()
+	var err error
+	p.state, err = rand.New()
+	if err != nil {
+		return nil, err
+	}
 	p.buff = make([]byte, p.inputDigestSize+p.hash.Size())
 	copy(p.buff, digest)
-	res, err := p.redo(nil)
+	res, err := p.redo()
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +108,8 @@ func (p *Pow) Result() *Result {
 	return p.result
 }
 
-func (p *Pow) Redo(state *rand.State) (*Result, error) {
-	res, err := p.redo(state)
+func (p *Pow) Redo() (*Result, error) {
+	res, err := p.redo()
 	if err != nil {
 		return nil, err
 	}
