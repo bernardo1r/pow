@@ -1,10 +1,13 @@
 package pow
 
 import (
-	"crypto/rand"
+	cryptoRand "crypto/rand"
 	"errors"
+	"hash"
 	"io"
 	"os"
+
+	"github.com/bernardo1r/pow/internal/rand"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -16,6 +19,7 @@ type Result struct {
 }
 
 type Pow struct {
+	hash            hash.Hash
 	buff            []byte
 	inputDigestSize int
 	result          *Result
@@ -45,15 +49,28 @@ func DigestFile(name string) ([]byte, error) {
 	return hash.Sum(digest), nil
 }
 
-func (p *Pow) redo() (*Result, error) {
-	_, err := rand.Read(p.buff[p.inputDigestSize:])
+func (p *Pow) redo(state *rand.State) (*Result, error) {
+	if state == nil {
+		_, err := cryptoRand.Read(p.buff[p.inputDigestSize:])
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := state.Read(p.buff[p.inputDigestSize:])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	p.hash.Reset()
+	_, err := p.hash.Write(p.buff)
 	if err != nil {
 		return nil, err
 	}
 
 	res := new(Result)
-	final := sha3.Sum512(p.buff)
-	res.Digest = final[:]
+	res.Digest = make([]byte, 0, p.hash.Size())
+	res.Digest = p.hash.Sum(res.Digest)
 	res.Challenge = make([]byte, len(p.buff[p.inputDigestSize:]))
 	copy(res.Challenge, p.buff[p.inputDigestSize:])
 	res.Zeros = res.countZeros()
@@ -77,9 +94,10 @@ count:
 func New(digest []byte) (*Pow, error) {
 	p := new(Pow)
 	p.inputDigestSize = len(digest)
-	p.buff = make([]byte, p.inputDigestSize+sha3.New512().Size())
+	p.hash = sha3.New512()
+	p.buff = make([]byte, p.inputDigestSize+p.hash.Size())
 	copy(p.buff, digest)
-	res, err := p.redo()
+	res, err := p.redo(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +110,8 @@ func (p *Pow) Result() *Result {
 	return p.result
 }
 
-func (p *Pow) Redo() (*Result, error) {
-	res, err := p.redo()
+func (p *Pow) Redo(state *rand.State) (*Result, error) {
+	res, err := p.redo(state)
 	if err != nil {
 		return nil, err
 	}
