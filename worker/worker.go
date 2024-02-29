@@ -19,6 +19,8 @@ func work(ctx context.Context, results chan<- *pow.Result, digest []byte, target
 	if err != nil {
 		return nil, err
 	}
+
+	var res *pow.Result
 	for {
 		select {
 		case <-ctx.Done():
@@ -26,7 +28,8 @@ func work(ctx context.Context, results chan<- *pow.Result, digest []byte, target
 
 		default:
 		}
-		res, err := p.Redo()
+
+		res, err = p.Redo(res)
 		if err != nil {
 			return nil, err
 		}
@@ -36,6 +39,7 @@ func work(ctx context.Context, results chan<- *pow.Result, digest []byte, target
 
 		highest = res
 		results <- highest
+		res = nil
 
 		if highest.Zeros >= target {
 			return highest, nil

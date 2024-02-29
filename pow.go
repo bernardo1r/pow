@@ -49,7 +49,7 @@ func DigestFile(name string) ([]byte, error) {
 	return hash.Sum(digest), nil
 }
 
-func (p *Pow) redo() (*Result, error) {
+func (p *Pow) redo(res *Result) (*Result, error) {
 	_, err := p.state.Read(p.buff[p.inputDigestSize:])
 	if err != nil {
 		return nil, err
@@ -61,10 +61,15 @@ func (p *Pow) redo() (*Result, error) {
 		return nil, err
 	}
 
-	res := new(Result)
-	res.Digest = make([]byte, 0, p.hash.Size())
+	if res == nil {
+		res = new(Result)
+		res.Challenge = make([]byte, p.hash.Size())
+		res.Digest = make([]byte, 0, p.hash.Size())
+	} else {
+		res.Digest = res.Digest[:0]
+	}
+
 	res.Digest = p.hash.Sum(res.Digest)
-	res.Challenge = make([]byte, len(p.buff[p.inputDigestSize:]))
 	copy(res.Challenge, p.buff[p.inputDigestSize:])
 	res.Zeros = res.countZeros()
 	return res, nil
@@ -95,7 +100,7 @@ func New(digest []byte) (*Pow, error) {
 	}
 	p.buff = make([]byte, p.inputDigestSize+p.hash.Size())
 	copy(p.buff, digest)
-	res, err := p.redo()
+	res, err := p.redo(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +113,8 @@ func (p *Pow) Result() *Result {
 	return p.result
 }
 
-func (p *Pow) Redo() (*Result, error) {
-	res, err := p.redo()
+func (p *Pow) Redo(res *Result) (*Result, error) {
+	res, err := p.redo(res)
 	if err != nil {
 		return nil, err
 	}
