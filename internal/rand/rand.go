@@ -4,7 +4,7 @@ import (
 	cryptoRand "crypto/rand"
 )
 
-const buffSize = 20 * (1 << 20) // 2 MiB
+const buffSize = 20 * (1 << 20) // 20 MiB
 
 type State struct {
 	buff []byte
